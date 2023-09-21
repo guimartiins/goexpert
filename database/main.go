@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -44,6 +45,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	p, err := selectProduct(db, product.ID)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("product %s - %s - %.2f", p.ID, p.Name, p.Price)
+
+	products, err := selectProducts(db)
+
+	if err != nil {
+		panic(err)
+	}
+
+	for _, p := range products {
+		fmt.Printf("product %s - %s - %.2f \n", p.ID, p.Name, p.Price)
+	}
 }
 
 func insertProduct(db *sql.DB, product *Product) error {
@@ -79,4 +98,52 @@ func updateProduct(db *sql.DB, product *Product) error {
 	}
 
 	return nil
+}
+
+func selectProduct(db *sql.DB, id string) (*Product, error) {
+	stmt, err := db.Prepare("SELECT id, name, price FROM products WHERE id = ?")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close()
+
+	var p Product
+
+	// QueryRow search for a single row in the database and returns a pointer to it
+	// using with Context, we can apply timeouts and cancellations
+	err = stmt.QueryRow(id).Scan(&p.ID, &p.Name, &p.Price)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
+func selectProducts(db *sql.DB) ([]Product, error) {
+	rows, err := db.Query("SELECT id, name, price FROM products")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var products []Product
+
+	for rows.Next() {
+		var p Product
+
+		err = rows.Scan(&p.ID, &p.Name, &p.Price)
+
+		if err != nil {
+			return nil, err
+		}
+
+		products = append(products, p)
+	}
+
+	return products, nil
 }
